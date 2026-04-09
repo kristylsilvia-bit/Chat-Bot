@@ -68,7 +68,7 @@ export function ChatMessage({ message, onRegenerate, onEdit }: ChatMessageProps)
             className="bg-input-bg/30 border border-border-color rounded-lg overflow-hidden"
           >
             <CollapsibleTrigger>
-              <Button render={<div />} variant="ghost" size="sm" className="w-full justify-start gap-2 h-8 text-[11px] text-[#676767] hover:bg-input-bg/50">
+              <Button render={<div />} nativeButton={false} variant="ghost" size="sm" className="w-full justify-start gap-2 h-8 text-[11px] text-[#676767] hover:bg-input-bg/50">
                 {isThinkingOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 <span>Thought for {message.thinking.length > 100 ? 'a few seconds' : 'a moment'}</span>
               </Button>

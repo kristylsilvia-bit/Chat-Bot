@@ -119,7 +119,7 @@ export function Composer({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger>
-                <Button render={<div />} variant="ghost" size="sm" className="h-8 gap-2 hover:bg-input-bg">
+                <Button render={<div />} nativeButton={false} variant="ghost" size="sm" className="h-8 gap-2 hover:bg-input-bg">
                   <Sparkles className="w-4 h-4 text-accent-color" />
                   <span className="text-xs font-medium">{selectedModel.displayName}</span>
                   <ChevronDown className="w-3 h-3 text-[#676767]" />

@@ -191,7 +191,7 @@ export function Sidebar({
         <div className="pt-2 border-t border-border-color space-y-1">
           <DropdownMenu>
             <DropdownMenuTrigger>
-              <Button render={<div />} variant="ghost" className="w-full justify-start gap-3 p-3 h-auto hover:bg-input-bg">
+              <Button render={<div />} nativeButton={false} variant="ghost" className="w-full justify-start gap-3 p-3 h-auto hover:bg-input-bg">
                 <Palette className="w-5 h-5 text-[#ececec]" />
                 <span className="text-sm text-[#ececec]">Theme</span>
               </Button>
@@ -212,7 +212,7 @@ export function Sidebar({
 
           <DropdownMenu>
             <DropdownMenuTrigger>
-              <Button render={<div />} variant="ghost" className="w-full justify-start gap-3 p-3 h-auto hover:bg-input-bg">
+              <Button render={<div />} nativeButton={false} variant="ghost" className="w-full justify-start gap-3 p-3 h-auto hover:bg-input-bg">
                 {user.photoURL ? (
                   <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
                 ) : (

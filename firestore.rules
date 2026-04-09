@@ -10,6 +10,10 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isDocOwner() {
+      return isAuthenticated() && resource.data.get('userId', '') == request.auth.uid;
+    }
+
     function isValidConversation(data) {
       return data.keys().hasAll(['id', 'title', 'userId', 'createdAt', 'updatedAt']) &&
              data.id is string &&
@@ -27,39 +31,43 @@ service cloud.firestore {
              data.timestamp is number;
     }
 
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
     match /conversations/{conversationId} {
-      allow read: if isOwner(resource.data.userId);
+      allow read: if isDocOwner();
       allow create: if isOwner(request.resource.data.userId) && isValidConversation(request.resource.data);
-      allow update: if isOwner(resource.data.userId) && 
+      allow update: if isDocOwner() && 
                       isValidConversation(request.resource.data) &&
                       request.resource.data.userId == resource.data.userId &&
                       request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if isOwner(resource.data.userId);
+      allow delete: if isDocOwner();
 
       match /messages/{messageId} {
         allow read: if isAuthenticated() && (
-          isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId)
+          get(/databases/$(database)/documents/conversations/$(conversationId)).data.get('userId', '') == request.auth.uid
         );
-        allow create: if isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId) && 
+        allow create: if (get(/databases/$(database)/documents/conversations/$(conversationId)).data.get('userId', '') == request.auth.uid) && 
                          isValidMessage(request.resource.data);
-        allow update: if isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId) &&
+        allow update: if (get(/databases/$(database)/documents/conversations/$(conversationId)).data.get('userId', '') == request.auth.uid) &&
                          isValidMessage(request.resource.data);
-        allow delete: if isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId);
+        allow delete: if (get(/databases/$(database)/documents/conversations/$(conversationId)).data.get('userId', '') == request.auth.uid);
       }
     }
 
     match /projects/{projectId} {
-      allow read: if isOwner(resource.data.userId);
+      allow read: if isDocOwner();
       allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isOwner(resource.data.userId);
+      allow update: if isDocOwner() && request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner();
     }
 
     match /memory/{memoryId} {
-      allow read: if isOwner(resource.data.userId);
+      allow read: if isDocOwner();
       allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isOwner(resource.data.userId);
+      allow update: if isDocOwner() && request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner();
     }
 
     match /{document=**} {
