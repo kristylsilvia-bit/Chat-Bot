@@ -40,7 +40,10 @@ export default function App() {
     sendMessage, 
     isLoading,
     isStreaming,
-    createNewConversation 
+    useThinking,
+    setUseThinking,
+    createNewConversation,
+    removeConversation
   } = useChat(user);
 
   useEffect(() => {
@@ -213,9 +216,25 @@ export default function App() {
           )}
           <div className="flex items-center gap-2 font-semibold text-lg">
             <span>ChatGPT</span>
-            <span className="text-[#676767]">Gemini</span>
+            <span className="text-[#676767]">Gemini 3</span>
           </div>
-          <div className="flex-1" />
+          <div className="flex-1 flex justify-center">
+            <button
+              onClick={() => setUseThinking(!useThinking)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                useThinking 
+                  ? "bg-purple-500/10 border-purple-500/50 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)]" 
+                  : "bg-[#2f2f2f] border-[#3f3f3f] text-[#676767] hover:border-[#4f4f4f]"
+              )}
+            >
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                useThinking ? "bg-purple-400 animate-pulse" : "bg-[#4f4f4f]"
+              )} />
+              Deep Thinking
+            </button>
+          </div>
           <button 
             onClick={() => createNewConversation()}
             className="p-2 hover:bg-[#2f2f2f] rounded-lg transition-colors md:hidden"

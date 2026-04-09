@@ -15,9 +15,10 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { ai, CHAT_MODEL } from '../lib/gemini';
+import { ai, CHAT_MODEL, PRO_MODEL } from '../lib/gemini';
 import { Message, Conversation } from '../types';
 import { User } from 'firebase/auth';
+import { ThinkingLevel } from '@google/genai';
 
 export function useChat(user: User | null) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -25,6 +26,7 @@ export function useChat(user: User | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [useThinking, setUseThinking] = useState(false);
 
   // Load conversations
   useEffect(() => {
@@ -126,9 +128,16 @@ export function useChat(user: User | null) {
       // Add current message to history
       history.push({ role: 'user', parts: [{ text: content }] });
 
+      const modelToUse = useThinking ? PRO_MODEL : CHAT_MODEL;
+      
       const chat = ai.chats.create({
-        model: CHAT_MODEL,
+        model: modelToUse,
         history: history.slice(0, -1), // History excluding the last message
+        config: useThinking ? {
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.HIGH
+          }
+        } : undefined
       });
 
       const result = await chat.sendMessageStream({
@@ -218,6 +227,8 @@ export function useChat(user: User | null) {
     sendMessage,
     isLoading,
     isStreaming,
+    useThinking,
+    setUseThinking,
     createNewConversation: () => setCurrentConversationId(null),
     removeConversation
   };
