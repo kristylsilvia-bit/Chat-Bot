@@ -6,6 +6,8 @@ export const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || '' 
 });
 
-export const CHAT_MODEL = "gemini-3-flash-preview"; // Using the latest Gemini 3 model
-export const PRO_MODEL = "gemini-3.1-pro-preview"; // For complex tasks
-export const IMAGE_MODEL = "gemini-2.5-flash-image"; // For image generation
+export const CHAT_MODEL = "gemini-3-flash-preview";
+export const PRO_MODEL = "gemini-3.1-pro-preview";
+export const IMAGE_MODEL = "gemini-2.5-flash-image";
+export const IMAGE_PRO_MODEL = "gemini-3.1-flash-image-preview";
+export const TTS_MODEL = "gemini-2.5-flash-preview-tts";

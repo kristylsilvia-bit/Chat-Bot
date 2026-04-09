@@ -1,32 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: conversations
-    // Document ID: conversationId
-    // Fields:
-    //   - id: string (required)
-    //   - title: string (required, max 100 chars)
-    //   - userId: string (required, immutable)
-    //   - createdAt: number (required, immutable)
-    //   - updatedAt: number (required)
-    //
-    // Collection: conversations/{conversationId}/messages
-    // Document ID: messageId
-    // Fields:
-    //   - id: string (required)
-    //   - role: string (required, enum: ['user', 'assistant'])
-    //   - content: string (required, max 10000 chars)
-    //   - timestamp: number (required)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
     
     function isAuthenticated() {
       return request.auth != null;
@@ -34,10 +8,6 @@ service cloud.firestore {
 
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isConversationOwner(conversationId) {
-      return isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId);
     }
 
     function isValidConversation(data) {
@@ -57,10 +27,6 @@ service cloud.firestore {
              data.timestamp is number;
     }
 
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
     match /conversations/{conversationId} {
       allow read: if isOwner(resource.data.userId);
       allow create: if isOwner(request.resource.data.userId) && isValidConversation(request.resource.data);
@@ -71,14 +37,31 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.userId);
 
       match /messages/{messageId} {
-        allow read: if isConversationOwner(conversationId);
-        allow create: if isConversationOwner(conversationId) && isValidMessage(request.resource.data);
-        allow update: if false; // Messages are usually immutable in this app
-        allow delete: if isConversationOwner(conversationId);
+        allow read: if isAuthenticated() && (
+          isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId)
+        );
+        allow create: if isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId) && 
+                         isValidMessage(request.resource.data);
+        allow update: if isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId) &&
+                         isValidMessage(request.resource.data);
+        allow delete: if isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId);
       }
     }
 
-    // Default deny
+    match /projects/{projectId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /memory/{memoryId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
