@@ -128,7 +128,7 @@ export function useChat(user: User | null) {
       role: 'user',
       content,
       timestamp: Date.now(),
-      attachments: processedAttachments.length > 0 ? processedAttachments : undefined
+      attachments: processedAttachments.length > 0 ? processedAttachments : []
     };
 
     // Save user message
@@ -140,7 +140,7 @@ export function useChat(user: User | null) {
 
     try {
       // Check for image generation intent
-      const isImageRequest = /generate (an )?image|create (a )?photo|draw/i.test(content);
+      const isImageRequest = /(generate|create|draw|make).*(image|photo|picture|drawing|cow|cat|dog|person)/i.test(content);
       
       if (isImageRequest && !useThinking) {
         // Use image model
@@ -148,6 +148,9 @@ export function useChat(user: User | null) {
           model: 'gemini-2.5-flash-image',
           contents: {
             parts: [{ text: content }]
+          },
+          config: {
+            systemInstruction: "You are an image generation assistant. When asked to generate an image, you MUST generate the image. Do not output JSON tool calls or descriptions of what you would do. Just output the image part."
           }
         });
 
@@ -203,11 +206,14 @@ export function useChat(user: User | null) {
       const chat = ai.chats.create({
         model: modelToUse,
         history: history.slice(0, -1), // History excluding the last message
-        config: useThinking ? {
-          thinkingConfig: {
-            thinkingLevel: ThinkingLevel.HIGH
-          }
-        } : undefined
+        config: {
+          systemInstruction: "You are a helpful AI assistant. You can generate images if requested by using your internal tools. Do not output JSON tool calls like dalle.text2im. If you cannot generate an image directly, just describe it.",
+          ...(useThinking ? {
+            thinkingConfig: {
+              thinkingLevel: ThinkingLevel.HIGH
+            }
+          } : {})
+        }
       });
 
       const result = await chat.sendMessageStream({
