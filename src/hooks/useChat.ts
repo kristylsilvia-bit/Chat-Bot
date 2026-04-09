@@ -128,7 +128,12 @@ export function useChat(user: User | null) {
       role: 'user',
       content,
       timestamp: Date.now(),
-      attachments: processedAttachments.length > 0 ? processedAttachments : []
+      attachments: (processedAttachments || []).map(a => ({
+        type: a.type,
+        url: a.url,
+        name: a.name || 'file',
+        mimeType: a.mimeType || 'application/octet-stream'
+      }))
     };
 
     // Save user message
@@ -139,8 +144,12 @@ export function useChat(user: User | null) {
     setIsStreaming(true);
 
     try {
-      // Check for image generation intent
-      const isImageRequest = /(generate|create|draw|make).*(image|photo|picture|drawing|cow|cat|dog|person)/i.test(content);
+      // Improved image generation detection
+      const isImageRequest = 
+        /(generate|create|draw|make|show|give).*(image|photo|picture|drawing|illustration|portrait)/i.test(content) ||
+        /(image|photo|picture|drawing|illustration|portrait).*(of|for)/i.test(content) ||
+        /dalle|text2im/i.test(content) ||
+        (content.includes('{') && content.includes('prompt') && (content.includes('image') || content.includes('cow')));
       
       if (isImageRequest && !useThinking) {
         // Use image model
@@ -150,7 +159,7 @@ export function useChat(user: User | null) {
             parts: [{ text: content }]
           },
           config: {
-            systemInstruction: "You are an image generation assistant. When asked to generate an image, you MUST generate the image. Do not output JSON tool calls or descriptions of what you would do. Just output the image part."
+            systemInstruction: "You are an image generation assistant. When asked to generate an image, you MUST generate the image. Do not output JSON tool calls, code, or descriptions. Just output the image part. If you see a prompt in JSON format, extract the prompt and generate the image."
           }
         });
 
@@ -162,7 +171,9 @@ export function useChat(user: User | null) {
           if (part.inlineData) {
             assistantAttachments.push({
               type: 'image',
-              url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
+              url: `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`,
+              name: 'generated-image.png',
+              mimeType: part.inlineData.mimeType || 'image/png'
             });
           } else if (part.text) {
             assistantContent += part.text;
@@ -207,7 +218,7 @@ export function useChat(user: User | null) {
         model: modelToUse,
         history: history.slice(0, -1), // History excluding the last message
         config: {
-          systemInstruction: "You are a helpful AI assistant. You can generate images if requested by using your internal tools. Do not output JSON tool calls like dalle.text2im. If you cannot generate an image directly, just describe it.",
+          systemInstruction: "You are a helpful AI assistant. IMPORTANT: You CANNOT generate images directly by outputting JSON like dalle.text2im. If the user asks for an image, just acknowledge the request or describe what you would see. The system will handle the actual image generation if it detects the intent. NEVER output raw JSON tool calls.",
           ...(useThinking ? {
             thinkingConfig: {
               thinkingLevel: ThinkingLevel.HIGH
