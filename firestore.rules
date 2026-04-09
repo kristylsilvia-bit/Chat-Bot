@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: conversations
+    // Document ID: conversationId
+    // Fields:
+    //   - id: string (required)
+    //   - title: string (required, max 100 chars)
+    //   - userId: string (required, immutable)
+    //   - createdAt: number (required, immutable)
+    //   - updatedAt: number (required)
+    //
+    // Collection: conversations/{conversationId}/messages
+    // Document ID: messageId
+    // Fields:
+    //   - id: string (required)
+    //   - role: string (required, enum: ['user', 'assistant'])
+    //   - content: string (required, max 10000 chars)
+    //   - timestamp: number (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isConversationOwner(conversationId) {
+      return isOwner(get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId);
+    }
+
+    function isValidConversation(data) {
+      return data.keys().hasAll(['id', 'title', 'userId', 'createdAt', 'updatedAt']) &&
+             data.id is string &&
+             data.title is string && data.title.size() <= 100 &&
+             data.userId is string &&
+             data.createdAt is number &&
+             data.updatedAt is number;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'role', 'content', 'timestamp']) &&
+             data.id is string &&
+             data.role in ['user', 'assistant'] &&
+             data.content is string && data.content.size() <= 10000 &&
+             data.timestamp is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /conversations/{conversationId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId) && isValidConversation(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      isValidConversation(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(resource.data.userId);
+
+      match /messages/{messageId} {
+        allow read: if isConversationOwner(conversationId);
+        allow create: if isConversationOwner(conversationId) && isValidMessage(request.resource.data);
+        allow update: if false; // Messages are usually immutable in this app
+        allow delete: if isConversationOwner(conversationId);
+      }
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
