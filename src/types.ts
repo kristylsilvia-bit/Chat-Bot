@@ -3,6 +3,12 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  attachments?: {
+    type: 'image' | 'file';
+    url: string;
+    name?: string;
+    mimeType?: string;
+  }[];
 }
 
 export interface Conversation {

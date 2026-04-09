@@ -35,6 +35,33 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {message.content}
           </ReactMarkdown>
         </div>
+        
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {message.attachments.map((att, i) => (
+              <div key={i} className="relative group">
+                {att.type === 'image' ? (
+                  <img 
+                    src={att.url} 
+                    alt={att.name || 'Attachment'} 
+                    className="max-w-sm max-h-96 rounded-lg border border-[#2f2f2f] object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-[#2f2f2f] bg-[#2f2f2f]/50 text-xs">
+                    <div className="w-8 h-8 rounded bg-[#3f3f3f] flex items-center justify-center">
+                      <Bot className="w-4 h-4 text-[#676767]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium truncate max-w-[150px]">{att.name}</span>
+                      <span className="text-[#676767] uppercase">{att.mimeType?.split('/')[1]}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

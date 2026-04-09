@@ -94,21 +94,41 @@ export function useChat(user: User | null) {
     return convId;
   };
 
-  const sendMessage = async (content: string) => {
-    if (!user || !content.trim()) return;
+  const sendMessage = async (content: string, attachments?: File[]) => {
+    if (!user || (!content.trim() && (!attachments || attachments.length === 0))) return;
 
     let convId = currentConversationId;
     if (!convId) {
-      convId = await createNewConversation(content);
+      convId = await createNewConversation(content || 'New Chat');
     }
 
     if (!convId) return;
+
+    // Process attachments
+    const processedAttachments: Message['attachments'] = [];
+    if (attachments) {
+      for (const file of attachments) {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        const base64 = await base64Promise;
+        processedAttachments.push({
+          type: file.type.startsWith('image/') ? 'image' : 'file',
+          url: base64,
+          name: file.name,
+          mimeType: file.type
+        });
+      }
+    }
 
     const userMessage: Message = {
       id: doc(collection(db, 'conversations', convId, 'messages')).id,
       role: 'user',
       content,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      attachments: processedAttachments.length > 0 ? processedAttachments : undefined
     };
 
     // Save user message
@@ -119,10 +139,60 @@ export function useChat(user: User | null) {
     setIsStreaming(true);
 
     try {
+      // Check for image generation intent
+      const isImageRequest = /generate (an )?image|create (a )?photo|draw/i.test(content);
+      
+      if (isImageRequest && !useThinking) {
+        // Use image model
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: {
+            parts: [{ text: content }]
+          }
+        });
+
+        const assistantMessageId = doc(collection(db, 'conversations', convId, 'messages')).id;
+        let assistantContent = '';
+        const assistantAttachments: Message['attachments'] = [];
+
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            assistantAttachments.push({
+              type: 'image',
+              url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
+            });
+          } else if (part.text) {
+            assistantContent += part.text;
+          }
+        }
+
+        const assistantMessage: Message = {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: assistantContent || 'Here is the image you requested:',
+          timestamp: Date.now(),
+          attachments: assistantAttachments
+        };
+
+        await setDoc(doc(db, 'conversations', convId, 'messages', assistantMessageId), assistantMessage);
+        setMessages(prev => [...prev, assistantMessage]);
+        setIsLoading(false);
+        setIsStreaming(false);
+        return;
+      }
+
       // Prepare history for Gemini
       const history = messages.map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.content }]
+        parts: [
+          { text: m.content },
+          ...(m.attachments?.map(a => ({
+            inlineData: {
+              data: a.url.split(',')[1],
+              mimeType: a.mimeType || 'image/jpeg'
+            }
+          })) || [])
+        ]
       }));
 
       // Add current message to history
@@ -141,7 +211,15 @@ export function useChat(user: User | null) {
       });
 
       const result = await chat.sendMessageStream({
-        message: content
+        message: [
+          { text: content },
+          ...(processedAttachments.map(a => ({
+            inlineData: {
+              data: a.url.split(',')[1],
+              mimeType: a.mimeType || 'image/jpeg'
+            }
+          })))
+        ]
       });
 
       const assistantMessageId = doc(collection(db, 'conversations', convId, 'messages')).id;

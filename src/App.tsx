@@ -17,7 +17,12 @@ import {
   SendHorizontal,
   Bot,
   LogIn,
-  Trash2
+  Trash2,
+  Mic,
+  MicOff,
+  Paperclip,
+  Image as ImageIcon,
+  FileText
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { auth, signIn, logOut, onAuthStateChanged, User } from './lib/firebase';
@@ -30,6 +35,9 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { 
@@ -69,10 +77,49 @@ export default function App() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if ((!inputValue.trim() && selectedFiles.length === 0) || isLoading) return;
     const content = inputValue;
+    const files = [...selectedFiles];
     setInputValue('');
-    await sendMessage(content);
+    setSelectedFiles([]);
+    await sendMessage(content, files);
+  };
+
+  const handleVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInputValue(prev => prev + (prev ? ' ' : '') + transcript);
+    };
+
+    if (isListening) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   if (isAuthLoading) {
@@ -302,7 +349,53 @@ export default function App() {
         {/* Input Area */}
         <div className="p-4 md:pb-8">
           <div className="max-w-3xl mx-auto relative">
+            {selectedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedFiles.map((file, i) => (
+                  <div key={i} className="relative group bg-[#2f2f2f] border border-[#3f3f3f] rounded-lg p-2 flex items-center gap-2">
+                    {file.type.startsWith('image/') ? (
+                      <ImageIcon className="w-4 h-4 text-purple-400" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-blue-400" />
+                    )}
+                    <span className="text-xs truncate max-w-[100px]">{file.name}</span>
+                    <button 
+                      onClick={() => removeFile(i)}
+                      className="p-0.5 hover:bg-[#3f3f3f] rounded"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="relative flex items-end w-full bg-[#2f2f2f] rounded-2xl p-2 pl-4 shadow-xl border border-[#3f3f3f]">
+              <div className="flex items-center gap-1 pb-1.5 pr-2">
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 hover:bg-[#3f3f3f] rounded-lg transition-colors text-[#676767] hover:text-[#ececec]"
+                  title="Upload file"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  className="hidden" 
+                  multiple 
+                />
+                <button 
+                  onClick={handleVoiceInput}
+                  className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    isListening ? "bg-red-500/20 text-red-400" : "hover:bg-[#3f3f3f] text-[#676767] hover:text-[#ececec]"
+                  )}
+                  title="Voice input"
+                >
+                  {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </button>
+              </div>
               <textarea
                 rows={1}
                 value={inputValue}
@@ -323,7 +416,7 @@ export default function App() {
               />
               <button 
                 onClick={handleSend}
-                disabled={!inputValue.trim() || isLoading}
+                disabled={(!inputValue.trim() && selectedFiles.length === 0) || isLoading}
                 className="p-2 bg-white text-black rounded-xl hover:bg-[#d7d7d7] transition-colors disabled:opacity-50 disabled:hover:bg-white ml-2 shrink-0"
               >
                 <SendHorizontal className="w-5 h-5" />
